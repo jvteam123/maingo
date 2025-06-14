@@ -1,42 +1,46 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart'
-    show
-        LatLng,
-        GoogleMapController,
-        MarkerId,
-        Marker,
-        Polyline,
-        InfoWindow,
-        PolylineId,
-        BitmapDescriptor,
-        LatLngBounds,
-        CameraUpdate,
-        JointType,
-        Cap,
-        CameraPosition,
-        GoogleMap;
-//import 'package:Maps_flutter/Maps_flutter.dart'; // This is the LatLng for the map
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
-// Alias for latlong2's LatLng (if you use it for other calculations)
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter/foundation.dart'; // Import for kDebugMode
-
 import 'firebase_options.dart';
+
+// Minimal ChatScreen implementation for demonstration.
+// Replace this with your actual chat UI if you have one.
+class ChatScreen extends StatelessWidget {
+  final String bookingId;
+  final String driverName;
+  final String customerPhone;
+  const ChatScreen({
+    required this.bookingId,
+    required this.driverName,
+    required this.customerPhone,
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Chat')),
+      body: Center(
+        child: Text(
+          'Chat with $customerPhone\nBooking ID: $bookingId\nDriver: $driverName',
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform);
-    runApp(const GoHatodDriverApp());
-  } catch (e, st) {
-    print('Firebase init error: $e\n$st');
-  }
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  runApp(const GoHatodDriverApp());
 }
 
 class GoHatodDriverApp extends StatelessWidget {
@@ -56,19 +60,16 @@ class GoHatodDriverApp extends StatelessWidget {
         ),
         cardTheme: CardThemeData(
           elevation: 4,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.pinkAccent,
             foregroundColor: Colors.white,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            textStyle:
-                const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
         ),
         floatingActionButtonTheme: const FloatingActionButtonThemeData(
@@ -185,8 +186,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
           final bookings = snapshot.data!.docs;
           return ListView.builder(
-            padding: const EdgeInsets.only(
-                bottom: 80.0), // Added padding to avoid FAB overlap
+            padding: const EdgeInsets.only(bottom: 80.0),
             itemCount: bookings.length,
             itemBuilder: (context, i) {
               final data = bookings[i].data() as Map<String, dynamic>;
@@ -200,12 +200,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               final destinationAddress =
                   data['destination']?['address'] ?? 'N/A';
 
-              if (kDebugMode) {
-                debugPrint(
-                    'DEBUG (DriverHomeScreen): raw fare value: ${data['fare']} (Type: ${data['fare'].runtimeType})');
-              }
               String fare = _formatFare(data['fare']);
-
               final driverName = data['driver']?['name'] ?? 'none';
 
               return Card(
@@ -228,8 +223,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                       const SizedBox(height: 8),
                       _buildDetailRow(context, 'Status', status),
                       _buildDetailRow(context, 'Pickup', pickupAddress),
-                      _buildDetailRow(
-                          context, 'Destination', destinationAddress),
+                      _buildDetailRow(context, 'Destination', destinationAddress),
                       _buildDetailRow(context, 'Fare', fare),
                       _buildDetailRow(context, 'Assigned Driver', driverName),
                       if (canAccept)
@@ -241,48 +235,37 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                               icon: const Icon(Icons.check_circle_outline),
                               label: const Text('Accept Booking'),
                               onPressed: () async {
-                                try {
-                                  await FirebaseFirestore.instance
-                                      .collection('bookings')
-                                      .doc(id)
-                                      .update({
-                                    'driver': {
-                                      'name': driverId,
-                                      'vehicle': 'Motorcycle',
-                                      'plate': 'ABC-123',
-                                    },
-                                    'status':
-                                        'active', // STATUS CHANGED TO 'active'
-                                    'driverAcceptedAt':
-                                        FieldValue.serverTimestamp(),
-                                  });
+                                await FirebaseFirestore.instance
+                                    .collection('bookings')
+                                    .doc(id)
+                                    .update({
+                                  'driver': {
+                                    'name': driverId,
+                                    'vehicle': 'Motorcycle',
+                                    'plate': 'ABC-123',
+                                  },
+                                  'status': 'active',
+                                  'driverAcceptedAt':
+                                      FieldValue.serverTimestamp(),
+                                });
 
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text('Booking accepted!')),
-                                    );
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                      if (context.mounted) {
-                                        Navigator.of(context)
-                                            .push(MaterialPageRoute(
-                                          builder: (_) => BookingDetailScreen(
-                                            bookingId: id,
-                                            driverName: driverId!,
-                                          ),
-                                        ));
-                                      }
-                                    });
-                                  }
-                                } catch (e) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                          content: Text(
-                                              'Failed to accept booking: $e')),
-                                    );
-                                  }
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('Booking accepted!')),
+                                  );
+                                  WidgetsBinding.instance
+                                      .addPostFrameCallback((_) {
+                                    if (context.mounted) {
+                                      Navigator.of(context)
+                                          .push(MaterialPageRoute(
+                                        builder: (_) => BookingDetailScreen(
+                                          bookingId: id,
+                                          driverName: driverId!,
+                                        ),
+                                      ));
+                                    }
+                                  });
                                 }
                               },
                             ),
@@ -416,10 +399,6 @@ class DriverAcceptedBookingsScreen extends StatelessWidget {
               final destinationAddress =
                   data['destination']?['address'] ?? 'N/A';
 
-              if (kDebugMode) {
-                debugPrint(
-                    'DEBUG (DriverAcceptedBookingsScreen): raw fare value: ${data['fare']} (Type: ${data['fare'].runtimeType})');
-              }
               String fare = _formatFare(data['fare']);
 
               return Card(
@@ -520,8 +499,11 @@ class DriverAcceptedBookingsScreen extends StatelessWidget {
 class BookingDetailScreen extends StatefulWidget {
   final String bookingId;
   final String driverName;
-  const BookingDetailScreen(
-      {super.key, required this.bookingId, required this.driverName});
+  const BookingDetailScreen({
+    super.key,
+    required this.bookingId,
+    required this.driverName,
+  });
 
   @override
   State<BookingDetailScreen> createState() => _BookingDetailScreenState();
@@ -529,23 +511,17 @@ class BookingDetailScreen extends StatefulWidget {
 
 class _BookingDetailScreenState extends State<BookingDetailScreen> {
   StreamSubscription<Position>? _locationSub;
-  // Explicitly use Maps_flutter's LatLng for map-related coordinates
   LatLng? _driverLatLng;
   GoogleMapController? _mapController;
   Map<MarkerId, Marker> _markers = {};
   Set<Polyline> _polylines = {};
   bool _isLoadingRoute = false;
   bool _hasInitialCameraAnimationRun = false;
-  // Store the last known pickup and destination LatLngs to avoid re-calculating route unnecessarily
   LatLng? _lastPickupLatLng;
   LatLng? _lastDestLatLng;
 
-  // IMPORTANT: Securely store your API key (e.g., using flutter_dotenv or environment variables)
-  // DO NOT hardcode it directly in your production code.
-  final String _googleMapsApiKey =
-      'AIzaSyAY2ateXTWXgThNsfZQkqIi6ZzWWcwNazE'; // Replace with your actual key
+  final String _googleMapsApiKey = 'AIzaSyAY2ateXTWXgThNsfZQkqIi6ZzWWcwNazE';
 
-  // Stream for Firestore booking data to avoid directly passing snapshot.data to other methods
   Stream<DocumentSnapshot>? _bookingStream;
 
   @override
@@ -683,7 +659,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     ).listen((Position pos) {
       if (mounted) {
         _driverLatLng =
-            LatLng(pos.latitude, pos.longitude); // Uses Maps_flutter.LatLng
+            LatLng(pos.latitude, pos.longitude);
 
         FirebaseFirestore.instance
             .collection('bookings')
@@ -694,14 +670,10 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
       }
     }, onError: (e) {
       _showSnackBar('Error getting location updates: $e');
-      if (kDebugMode) {
-        debugPrint("Location stream error: $e");
-      }
     });
   }
 
   Future<void> _getRoute(LatLng from, LatLng to) async {
-    // Uses Maps_flutter.LatLng
     if (_isLoadingRoute ||
         (_lastPickupLatLng == from && _lastDestLatLng == to)) {
       return;
@@ -749,16 +721,9 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
       } else {
         _showSnackBar(
             'Failed to get route: ${response.statusCode} - ${response.body}');
-        if (kDebugMode) {
-          debugPrint(
-              'Directions API Error: Status ${response.statusCode}, Body: ${response.body}');
-        }
       }
     } catch (e) {
       _showSnackBar('Error fetching route: $e');
-      if (kDebugMode) {
-        debugPrint('Error in _getRoute: $e');
-      }
     } finally {
       if (mounted) {
         setState(() {
@@ -769,8 +734,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
   }
 
   List<LatLng> _decodePolyline(String encoded) {
-    // Uses Maps_flutter.LatLng
-    List<LatLng> polyline = []; // Uses Maps_flutter.LatLng
+    List<LatLng> polyline = [];
     int index = 0, len = encoded.length;
     int lat = 0, lng = 0;
 
@@ -794,7 +758,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
       int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
       lng += dlng;
 
-      polyline.add(LatLng(lat / 1E5, lng / 1E5)); // Uses Maps_flutter.LatLng
+      polyline.add(LatLng(lat / 1E5, lng / 1E5));
     }
     return polyline;
   }
@@ -818,274 +782,319 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     }
   }
 
-  // ... (imports and class declaration stay the same)
-
   @override
   Widget build(BuildContext context) {
-    debugPrint('BookingDetailScreen build called'); // Debug print
-    return Scaffold(
-      appBar: AppBar(title: const Text('Booking Details')),
-      resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        child: StreamBuilder<DocumentSnapshot>(
-          stream: _bookingStream, // Use the stream from state
-          builder: (context, snapshot) {
-            debugPrint('StreamBuilder builder called'); // Debug print
+    return StreamBuilder<DocumentSnapshot>(
+      stream: _bookingStream,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Scaffold(body: Center(child: Text('Error: ${snapshot.error}')));
+        }
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+        final pickup = data['pickup'];
+        final destination = data['destination'];
+        final currentStatus = data['status'] ?? 'N/A';
+        final customerPhone = data['customerMobile'] ?? data['customerPhone'] ?? 'N/A';
+        final LatLng? pickupLatLng = (pickup != null &&
+            pickup['lat'] != null &&
+            pickup['lng'] != null)
+            ? LatLng(pickup['lat'], pickup['lng'])
+            : null;
+        final LatLng? destLatLng = (destination != null &&
+            destination['lat'] != null &&
+            destination['lng'] != null)
+            ? LatLng(destination['lat'], destination['lng'])
+            : null;
 
-            if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
-            }
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
+        final mapWidget = Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.37,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.pinkAccent.withOpacity(0.09),
+                  blurRadius: 12,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: GoogleMap(
+                key: ValueKey(widget.bookingId),
+                initialCameraPosition: CameraPosition(
+                  target: _driverLatLng ??
+                      LatLng(pickupLatLng?.latitude ?? 0,
+                          pickupLatLng?.longitude ?? 0),
+                  zoom: 15.5,
+                ),
+                markers: Set<Marker>.of(_markers.values),
+                polylines: _polylines,
+                onMapCreated: (controller) {
+                  _mapController = controller;
+                },
+                myLocationEnabled: true,
+                myLocationButtonEnabled: true,
+                padding: const EdgeInsets.only(bottom: 30),
+              ),
+            ),
+          ),
+        );
 
-            final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-            final pickup = data['pickup'];
-            final destination = data['destination'];
-            final currentStatus = data['status'] ?? 'N/A';
-            final customerPhone = data['customerPhone'] ?? 'N/A';
-
-            final LatLng? pickupLatLng = (pickup != null &&
-                    pickup['lat'] != null &&
-                    pickup['lng'] != null)
-                ? LatLng(pickup['lat'], pickup['lng'])
-                : null;
-            final LatLng? destLatLng = (destination != null &&
-                    destination['lat'] != null &&
-                    destination['lng'] != null)
-                ? LatLng(destination['lat'], destination['lng'])
-                : null;
-
-            // Map marker/route logic as before
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                _updateMapMarkers(_driverLatLng, pickupLatLng, destLatLng);
-              }
-            });
-            if (_driverLatLng != null && destLatLng != null) {
-              if (_lastPickupLatLng != _driverLatLng ||
-                  _lastDestLatLng != destLatLng) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    _getRoute(_driverLatLng!, destLatLng);
-                  }
-                });
-              }
-            }
-            if (_mapController != null &&
-                !_hasInitialCameraAnimationRun &&
-                _driverLatLng != null &&
-                pickupLatLng != null &&
-                destLatLng != null) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  _animateCameraToFitMarkers(
-                      _driverLatLng, pickupLatLng, destLatLng);
-                }
-              });
-            }
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // --- MAP AT THE TOP ---
-                SizedBox(
-                  height: 260,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16.0, vertical: 12),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: GoogleMap(
-                        key: ValueKey(widget.bookingId),
-                        initialCameraPosition: CameraPosition(
-                          target: _driverLatLng ??
-                              LatLng(pickupLatLng?.latitude ?? 0,
-                                  pickupLatLng?.longitude ?? 0),
-                          zoom: 14,
-                        ),
-                        markers: Set<Marker>.of(_markers.values),
-                        polylines: _polylines,
-                        onMapCreated: (controller) {
-                          _mapController = controller;
-                        },
-                        myLocationEnabled: true,
-                        myLocationButtonEnabled: true,
-                        padding: EdgeInsets.only(
-                            bottom: _driverLatLng != null ? 0 : 40),
-                      ),
+        final detailsCard = Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+          child: Card(
+            elevation: 5,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${data['serviceType']?.toString().toUpperCase() ?? 'SERVICE'} BOOKING',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.pink[700],
+                      fontWeight: FontWeight.w700,
+                      fontSize: 22,
                     ),
                   ),
-                ),
-
-                // --- CUSTOMER DETAILS BELOW MAP ---
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: currentStatus == 'completed'
+                              ? Colors.green[100]
+                              : Colors.orange[100],
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          currentStatus.toUpperCase(),
+                          style: TextStyle(
+                            color: currentStatus == 'completed'
+                                ? Colors.green[800]
+                                : Colors.orange[800],
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  _bookingDetailRow(
+                    context,
+                    icon: Icons.place,
+                    label: 'Pickup',
+                    value: pickup?['address'] ?? 'N/A',
+                  ),
+                  const SizedBox(height: 8),
+                  _bookingDetailRow(
+                    context,
+                    icon: Icons.flag,
+                    label: 'Destination',
+                    value: destination?['address'] ?? 'N/A',
+                  ),
+                  const SizedBox(height: 8),
+                  _bookingDetailRow(
+                    context,
+                    icon: Icons.local_atm,
+                    label: 'Fare',
+                    value: _formatFare(data['fare']),
+                    valueStyle: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 17,
+                      color: Colors.pink,
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                  ),
+                  const SizedBox(height: 8),
+                  if (data['driver']?['name'] != null)
+                    _bookingDetailRow(
+                      context,
+                      icon: Icons.person,
+                      label: 'Driver',
+                      value: data['driver']['name'],
+                    ),
+                  const SizedBox(height: 12),
+                  // --- CUSTOMER PHONE WITH CALL & CHAT ICON BUTTONS ---
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.phone_android, color: Colors.pink, size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          customerPhone,
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      if (customerPhone != 'N/A' && customerPhone.isNotEmpty) ...[
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green[600],
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          icon: const Icon(Icons.phone, color: Colors.white, size: 18),
+                          label: const Text(
+                            "Call",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          onPressed: () => _makePhoneCall(customerPhone),
+                        ),
+                        const SizedBox(width: 6),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue[600],
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          icon: const Icon(Icons.chat, color: Colors.white, size: 18),
+                          label: const Text(
+                            "Chat",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ChatScreen(
+                                  bookingId: widget.bookingId,
+                                  driverName: widget.driverName,
+                                  customerPhone: customerPhone,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+
+        final completeBookingButton = Padding(
+          padding: EdgeInsets.only(
+            left: 18,
+            right: 18,
+            bottom: MediaQuery.of(context).padding.bottom + 22,
+            top: 6,
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.check_circle_outline, size: 22),
+              label: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  "Complete Booking",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.pink[600],
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                elevation: 6,
+              ),
+              onPressed: () async {
+                await FirebaseFirestore.instance
+                    .collection('bookings')
+                    .doc(widget.bookingId)
+                    .update({'status': 'completed'});
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+            ),
+          ),
+        );
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Booking Details'),
+            backgroundColor: Colors.pink,
+            elevation: 0,
+          ),
+          body: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: IntrinsicHeight(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            '${data['serviceType'] ?? 'Service'} Booking Overview',
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineSmall
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.pink[700],
-                                ),
-                          ),
-                          const Divider(height: 20, thickness: 1),
-                          _buildDetailRow(
-                              context, 'Status', currentStatus.toUpperCase()),
-                          _buildDetailRow(
-                              context, 'Pickup', pickup?['address'] ?? 'N/A'),
-                          _buildDetailRow(context, 'Destination',
-                              destination?['address'] ?? 'N/A'),
-                          _buildDetailRow(
-                              context, 'Fare', _formatFare(data['fare'])),
-                          if (data['driver']?['name'] != null)
-                            _buildDetailRow(
-                                context, 'Driver', data['driver']['name']),
-                          // --- CUSTOMER PHONE WITH CALL ICON ---
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4.0),
-                            child: Row(
-                              children: [
-                                SizedBox(
-                                  width: 100,
-                                  child: Text(
-                                    'Customer:',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    customerPhone,
-                                    style:
-                                        Theme.of(context).textTheme.bodyMedium,
-                                  ),
-                                ),
-                                if (customerPhone != 'N/A' &&
-                                    customerPhone.isNotEmpty)
-                                  IconButton(
-                                    icon: const Icon(Icons.phone,
-                                        color: Colors.green),
-                                    onPressed: () =>
-                                        _makePhoneCall(customerPhone),
-                                    tooltip: 'Call Customer',
-                                  ),
-                              ],
-                            ),
-                          ),
+                          mapWidget,
+                          const SizedBox(height: 18),
+                          detailsCard,
+                          const Spacer(),
+                          completeBookingButton,
                         ],
                       ),
                     ),
                   ),
-                ),
-
-                // --- COMPLETE BOOKING BUTTON ---
-                Padding(
-                  padding: EdgeInsets.only(
-                    left: 16,
-                    right: 16,
-                    bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-                    top: 8,
-                  ),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.task_alt),
-                      label: const Text('Complete Booking'),
-                      onPressed: currentStatus == 'completed'
-                          ? null
-                          : () async {
-                              try {
-                                await FirebaseFirestore.instance
-                                    .collection('bookings')
-                                    .doc(widget.bookingId)
-                                    .update({
-                                  'status': 'completed',
-                                  'completedAt': FieldValue.serverTimestamp(),
-                                });
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text(
-                                            'Booking marked as completed!')),
-                                  );
-                                  Navigator.of(context).pop();
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                        content: Text(
-                                            'Failed to complete booking: $e')),
-                                  );
-                                }
-                              }
-                            },
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-      // Floating Action Button for Chat (unchanged)
-      floatingActionButton: FloatingActionButton.extended(
-        icon: const Icon(Icons.chat),
-        label: const Text('Chat with Customer'),
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => ChatScreen(
-                bookingId: widget.bookingId,
-                senderName: widget.driverName,
-              ),
+                );
+              },
             ),
-          );
-        },
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildDetailRow(BuildContext context, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              '$label:',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(fontWeight: FontWeight.w600),
-            ),
+  Widget _bookingDetailRow(BuildContext context,
+      {required IconData icon,
+      required String label,
+      required String value,
+      TextStyle? valueStyle}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: Colors.pink, size: 20),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 96,
+          child: Text(
+            '$label:',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: valueStyle ??
+                Theme.of(context)
+                    .textTheme
+                    .bodyLarge
+                    ?.copyWith(color: Colors.black87, fontWeight: FontWeight.w500),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1102,217 +1111,5 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
       }
     }
     return 'N/A';
-  }
-}
-
-// NEW WIDGET FOR THE CHAT SCREEN
-class ChatScreen extends StatelessWidget {
-  final String bookingId;
-  final String senderName;
-  const ChatScreen({
-    super.key,
-    required this.bookingId,
-    required this.senderName,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Customer Chat'),
-      ),
-      // Ensure resizeToAvoidBottomInset is true (default for Scaffold)
-      resizeToAvoidBottomInset: true,
-      body: BookingChatWidget(
-        bookingId: bookingId,
-        senderName: senderName,
-      ),
-    );
-  }
-}
-
-class BookingChatWidget extends StatefulWidget {
-  final String bookingId;
-  final String senderName;
-  const BookingChatWidget(
-      {super.key, required this.bookingId, required this.senderName});
-
-  @override
-  State<BookingChatWidget> createState() => _BookingChatWidgetState();
-}
-
-class _BookingChatWidgetState extends State<BookingChatWidget> {
-  final TextEditingController _controller = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-
-  void _sendMessage() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-
-    try {
-      await FirebaseFirestore.instance
-          .collection('bookings')
-          .doc(widget.bookingId)
-          .collection('messages')
-          .add({
-        'sender': widget.senderName,
-        'text': text,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-      _controller.clear();
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-        }
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to send message: $e')),
-        );
-      }
-      if (kDebugMode) {
-        debugPrint("Error sending message: $e");
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('bookings')
-                .doc(widget.bookingId)
-                .collection('messages')
-                .orderBy('timestamp')
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return Center(
-                    child: Text('Error loading chat: ${snapshot.error}'));
-              }
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(
-                    child: Text('No messages yet. Start the conversation!'));
-              }
-
-              final messages = snapshot.data!.docs;
-              return ListView.builder(
-                controller: _scrollController,
-                itemCount: messages.length,
-                itemBuilder: (context, index) {
-                  final data = messages[index].data() as Map<String, dynamic>;
-                  final isMe = data['sender'] == widget.senderName;
-                  return Align(
-                    alignment:
-                        isMe ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      margin: EdgeInsets.fromLTRB(
-                        isMe ? 60 : 8,
-                        4,
-                        isMe ? 8 : 60,
-                        4,
-                      ),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: isMe ? Colors.pink[100] : Colors.blueGrey[50],
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.2),
-                            blurRadius: 2,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isMe ? 'You' : data['sender'] ?? 'Unknown',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                              color: isMe
-                                  ? Colors.pink[700]
-                                  : Colors.blueGrey[700],
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            data['text'] ?? '',
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                          if (data['timestamp'] != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4.0),
-                              child: Text(
-                                _formatTimestamp(data['timestamp']),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-        Padding(
-          padding: EdgeInsets.only(
-            left: 8.0,
-            right: 8.0,
-            bottom: MediaQuery.of(context).viewInsets.bottom +
-                8.0, // Modified padding
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _controller,
-                  decoration: InputDecoration(
-                    hintText: 'Type a message...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(25.0),
-                      borderSide: BorderSide.none,
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey[100],
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 10),
-                  ),
-                  onSubmitted: (_) => _sendMessage(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              CircleAvatar(
-                backgroundColor: Colors.pinkAccent,
-                radius: 24,
-                child: IconButton(
-                  icon: const Icon(Icons.send, color: Colors.white),
-                  onPressed: _sendMessage,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  String _formatTimestamp(Timestamp timestamp) {
-    final date = timestamp.toDate();
-    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 }
