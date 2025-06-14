@@ -1881,7 +1881,7 @@ class CheckoutScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final cart = Provider.of<CartProvider>(context, listen: false);
     final user = FirebaseAuth.instance.currentUser;
-
+    final customerMobile = user?.phoneNumber ?? '';
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout')),
       body: Padding(
@@ -1935,6 +1935,7 @@ class CheckoutScreen extends StatelessWidget {
                             'name': item.menuItem.name,
                             'quantity': item.quantity,
                             'price': item.menuItem.price,
+                            'customerMobile': customerMobile,
                           })
                       .toList(),
                   'total': cart.totalPrice,
@@ -3736,6 +3737,7 @@ class _RequestServicePageState extends State<RequestServicePage> {
           'items': _itemDescriptionController.text,
           'estimatedCost': _estimatedCostController.text,
         },
+        'customerMobile': user.phoneNumber,
     };
 
     try {
